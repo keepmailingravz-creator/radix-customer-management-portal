@@ -132,10 +132,40 @@
           return;
         }
 
-        // Customer authentication
+        // Customer authentication (hardcoded)
         if (userId === 'keepmailingravz@gmail.com' && password === 'Tester@1') {
           const next = loadState() || state;
           next.auth = { userId, isAuthed: true, role: 'customer', name: 'Ravikiran', email: 'keepmailingravz@gmail.com', customerId: 'CUST001' };
+          saveState(next);
+          window.location.href = './customer.html';
+          return;
+        }
+
+        // Dynamic authentication — check users/customers created by admin
+        const DATA_KEY = 'radix_data';
+        const savedData = JSON.parse(localStorage.getItem(DATA_KEY) || '{}');
+        
+        // Check admin-created employees (users array)
+        const matchedUser = (savedData.users || []).find(
+          u => u.email === userId && u.password === password && u.status === 'active'
+        );
+        if (matchedUser) {
+          const next = loadState() || state;
+          const adminRoles = ['admin', 'manager', 'staff', 'viewer'];
+          const isAdminRole = adminRoles.includes(matchedUser.role);
+          next.auth = { userId: matchedUser.email, isAuthed: true, role: matchedUser.role, name: matchedUser.name, email: matchedUser.email };
+          saveState(next);
+          window.location.href = isAdminRole ? './admin.html' : './customer.html';
+          return;
+        }
+
+        // Check admin-created customers (mgmtCustomers array)
+        const matchedCustomer = (savedData.mgmtCustomers || []).find(
+          c => c.email === userId && c.password === password && c.status === 'active'
+        );
+        if (matchedCustomer) {
+          const next = loadState() || state;
+          next.auth = { userId: matchedCustomer.email, isAuthed: true, role: 'customer', name: matchedCustomer.name, email: matchedCustomer.email, customerId: matchedCustomer.id };
           saveState(next);
           window.location.href = './customer.html';
           return;
