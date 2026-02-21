@@ -1,0 +1,47 @@
+/* Base styles */
+:root {
+  --brand-font: 'Merriweather', serif;
+}
+
+html, body {
+  font-family: var(--brand-font);
+}
+
+/* Typography helpers */
+.text-compact {
+  font-size: 0.82rem;
+  line-height: 1.1rem;
+}
+
+.text-compact-sm {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.login-logo-title {
+  font-family: var(--brand-font);
+  color: #14b8a6;
+}
+
+.login-logo-tagline {
+  font-family: var(--brand-font);
+}
+
+/* Card */
+.card {
+  border-radius: 10px;
+}
+
+/* Button */
+.btn {
+  transition: opacity 0.15s ease;
+}
+
+/* Canvas layering */
+#nebulaCanvas {
+  z-index: 0;
+}
+
+body > main {
+  z-index: 10;
+}

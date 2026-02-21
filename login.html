@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Radix — Login</title>
+
+    <script>
+      // Apply dark theme early to avoid flash
+      (function () {
+        try {
+          const raw = localStorage.getItem('radix_state');
+          const theme = raw ? (JSON.parse(raw)?.ui?.theme || 'light') : 'light';
+          if (theme === 'dark') document.documentElement.classList.add('dark');
+        } catch {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = { darkMode: 'class' };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+
+  <body class="h-full bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-slate-100">
+    <canvas id="nebulaCanvas" class="fixed inset-0 h-full w-full pointer-events-none" aria-hidden="true"></canvas>
+
+    <main class="relative z-10 min-h-full flex items-start justify-center px-6 pt-12 pb-8 sm:pt-16">
+      <section class="w-full max-w-sm">
+        <!-- Brand -->
+        <div class="relative mb-6 text-center">
+          <div class="relative inline-block">
+            <h1 class="login-logo-title text-3xl font-semibold tracking-tight sm:text-4xl">Radix</h1>
+          </div>
+          <p class="login-logo-tagline mt-2 text-compact italic text-slate-800 dark:text-slate-200 sm:text-base">The Root of Reliability</p>
+        </div>
+
+        <div class="card w-full border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+          <div class="mb-5 text-center">
+            <div class="text-compact font-semibold tracking-tight text-slate-900 dark:text-slate-100">Login Portal</div>
+          </div>
+
+          <form id="loginForm" class="space-y-3">
+            <div>
+              <label class="text-compact-sm text-slate-900 dark:text-slate-100" for="userId">User ID</label>
+              <input id="userId" name="userId" autocomplete="username" spellcheck="false"
+                class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-compact outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-800 dark:bg-slate-950 dark:focus:border-teal-400" />
+            </div>
+
+            <div>
+              <label class="text-compact-sm text-slate-900 dark:text-slate-100" for="password">Password</label>
+              <input id="password" name="password" type="password" autocomplete="current-password"
+                class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-compact outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-800 dark:bg-slate-950 dark:focus:border-teal-400" />
+            </div>
+
+            <p id="error" class="hidden text-compact-sm text-red-600"></p>
+
+            <button type="submit"
+              class="btn mt-2 w-full rounded-xl border border-teal-600/10 bg-teal-600 px-3 py-2 text-compact font-medium text-white hover:bg-teal-700 transition-colors dark:border-teal-400/10 dark:bg-teal-500 dark:text-white">
+              Login
+            </button>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const STORAGE_KEY = 'radix_state';
+
+      function loadState() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? JSON.parse(raw) : null;
+        } catch {
+          return null;
+        }
+      }
+
+      function saveState(state) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
+
+      function applyTheme(theme) {
+        document.documentElement.classList.toggle('dark', theme === 'dark');
+      }
+
+      const state = loadState() || {
+        auth: { userId: null, isAuthed: false, role: null },
+        ui: { theme: 'light', sidebarCollapsed: false }
+      };
+
+      if (!localStorage.getItem(STORAGE_KEY)) saveState(state);
+      applyTheme(state.ui?.theme || 'light');
+
+      // If already logged in, redirect
+      if (state.auth?.isAuthed) {
+        if (state.auth.role === 'superadmin') {
+          window.location.href = './admin.html';
+        } else if (state.auth.role === 'customer') {
+          window.location.href = './customer.html';
+        }
+      }
+
+      const loginForm = document.getElementById('loginForm');
+      const errorEl = document.getElementById('error');
+
+      loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        errorEl.classList.add('hidden');
+        errorEl.textContent = '';
+
+        const userId = (document.getElementById('userId').value || '').trim();
+        const password = document.getElementById('password').value || '';
+
+        if (!userId || !password) {
+          errorEl.textContent = 'Please enter User ID and Password.';
+          errorEl.classList.remove('hidden');
+          return;
+        }
+
+        // Super Admin authentication
+        if (userId === 'ravikiran' && password === 'Tester@1') {
+          const next = loadState() || state;
+          next.auth = { userId, isAuthed: true, role: 'superadmin', name: 'Ravikiran' };
+          saveState(next);
+          window.location.href = './admin.html';
+          return;
+        }
+
+        // Customer authentication
+        if (userId === 'keepmailingravz@gmail.com' && password === 'Tester@1') {
+          const next = loadState() || state;
+          next.auth = { userId, isAuthed: true, role: 'customer', name: 'Ravikiran', email: 'keepmailingravz@gmail.com', customerId: 'CUST001' };
+          saveState(next);
+          window.location.href = './customer.html';
+          return;
+        }
+
+        errorEl.textContent = 'Invalid credentials.';
+        errorEl.classList.remove('hidden');
+      });
+
+      // Nebula background: subtle moving clouds + connected stars
+      (function initNebulaBackground() {
+        const canvas = document.getElementById('nebulaCanvas');
+        if (!canvas) return;
+
+        const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reduceMotion) return;
+
+        const ctx = canvas.getContext('2d', { alpha: true });
+        if (!ctx) return;
+
+        const isDark = () => document.documentElement.classList.contains('dark');
+        const dpr = () => Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+
+        let width = 0;
+        let height = 0;
+        function resize() {
+          width = Math.floor(window.innerWidth);
+          height = Math.floor(window.innerHeight);
+          const ratio = dpr();
+          canvas.width = Math.floor(width * ratio);
+          canvas.height = Math.floor(height * ratio);
+          canvas.style.width = width + 'px';
+          canvas.style.height = height + 'px';
+          ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        }
+        resize();
+        window.addEventListener('resize', resize, { passive: true });
+
+        const STAR_COUNT = 44;
+        const MAX_DIST = 140;
+        const MAX_CONNECTIONS = 2;
+
+        const stars = Array.from({ length: STAR_COUNT }, () => {
+          const speed = 0.12 + Math.random() * 0.18;
+          const angle = Math.random() * Math.PI * 2;
+          return {
+            x: Math.random() * width,
+            y: Math.random() * height,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            r: 0.8 + Math.random() * 1.2
+          };
+        });
+
+        const blobs = Array.from({ length: 4 }, () => {
+          const speed = 0.03 + Math.random() * 0.05;
+          const angle = Math.random() * Math.PI * 2;
+          return {
+            x: Math.random() * width,
+            y: Math.random() * height,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            r: Math.min(width, height) * (0.28 + Math.random() * 0.22)
+          };
+        });
+
+        function wrap(p, pad) {
+          if (p.x < -pad) p.x = width + pad;
+          if (p.x > width + pad) p.x = -pad;
+          if (p.y < -pad) p.y = height + pad;
+          if (p.y > height + pad) p.y = -pad;
+        }
+
+        let raf = 0;
+        function draw() {
+          ctx.clearRect(0, 0, width, height);
+
+          // Nebula blobs
+          for (const b of blobs) {
+            b.x += b.vx;
+            b.y += b.vy;
+            wrap(b, b.r);
+
+            const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
+            if (isDark()) {
+              g.addColorStop(0, 'rgba(148, 163, 184, 0.08)');
+              g.addColorStop(0.55, 'rgba(100, 116, 139, 0.05)');
+              g.addColorStop(1, 'rgba(2, 6, 23, 0)');
+            } else {
+              g.addColorStop(0, 'rgba(15, 23, 42, 0.06)');
+              g.addColorStop(0.55, 'rgba(51, 65, 85, 0.03)');
+              g.addColorStop(1, 'rgba(248, 250, 252, 0)');
+            }
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // Stars
+          const starFill = isDark() ? 'rgba(226, 232, 240, 0.70)' : 'rgba(15, 23, 42, 0.35)';
+          ctx.fillStyle = starFill;
+          for (const s of stars) {
+            s.x += s.vx;
+            s.y += s.vy;
+            wrap(s, 24);
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // Connections
+          const lineBase = isDark() ? [226, 232, 240] : [15, 23, 42];
+          for (let i = 0; i < stars.length; i++) {
+            let connections = 0;
+            for (let j = i + 1; j < stars.length; j++) {
+              const a = stars[i];
+              const b = stars[j];
+              const dx = a.x - b.x;
+              const dy = a.y - b.y;
+              const d = Math.hypot(dx, dy);
+              if (d > MAX_DIST) continue;
+
+              connections++;
+              if (connections > MAX_CONNECTIONS) break;
+
+              const alpha = (1 - d / MAX_DIST) * (isDark() ? 0.18 : 0.10);
+              ctx.strokeStyle = `rgba(${lineBase[0]}, ${lineBase[1]}, ${lineBase[2]}, ${alpha})`;
+              ctx.lineWidth = 1;
+              ctx.beginPath();
+              ctx.moveTo(a.x, a.y);
+              ctx.lineTo(b.x, b.y);
+              ctx.stroke();
+            }
+          }
+
+          raf = window.requestAnimationFrame(draw);
+        }
+
+        raf = window.requestAnimationFrame(draw);
+        window.addEventListener('visibilitychange', () => {
+          if (document.hidden) {
+            if (raf) window.cancelAnimationFrame(raf);
+            raf = 0;
+          } else if (!raf) {
+            raf = window.requestAnimationFrame(draw);
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>
