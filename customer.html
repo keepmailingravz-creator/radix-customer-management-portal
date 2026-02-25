@@ -971,6 +971,9 @@
               </table>
             </div>
           </div>
+
+          <!-- Open Chat Panels Container -->
+          <div id="openChatPanels" class="mt-4 space-y-3"></div>
         </div>
 
         <!-- ========== SETTINGS PAGE ========== -->
@@ -1670,7 +1673,7 @@
 
         tbody.innerHTML = tickets.map(ticket => `
           <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-            <td class="px-3 py-2 font-medium text-teal-600 dark:text-teal-400">${ticket.id}</td>
+            <td class="px-3 py-2 font-medium text-teal-600 dark:text-teal-400 cursor-pointer hover:underline" onclick="openTicketChat('${ticket.id}')">${ticket.id}</td>
             <td class="px-3 py-2">${ticket.subject}</td>
             <td class="px-3 py-2 text-slate-600 dark:text-slate-300">${categoryLabels[ticket.category] || ticket.category || '-'}</td>
             <td class="px-3 py-2 text-center"><span class="px-2 py-0.5 text-[10px] font-medium rounded-full ${priorityColors[ticket.priority] || ''}">${(ticket.priority || '-').toUpperCase()}</span></td>
@@ -1725,6 +1728,163 @@
         showToast('Ticket submitted successfully!', 'success');
         renderTicketsTable();
         updateTicketStats();
+      }
+
+      // ===== TICKET CHAT PANELS =====
+      const openChats = new Set();
+
+      function openTicketChat(ticketId) {
+        if (openChats.has(ticketId)) {
+          // Scroll to existing panel
+          const panel = document.getElementById('chat-panel-' + ticketId);
+          if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          return;
+        }
+        openChats.add(ticketId);
+        renderChatPanel(ticketId);
+      }
+
+      function closeTicketChat(ticketId) {
+        openChats.delete(ticketId);
+        const panel = document.getElementById('chat-panel-' + ticketId);
+        if (panel) panel.remove();
+      }
+
+      function getTicketById(ticketId) {
+        const allTickets = getMyTickets();
+        return allTickets.find(t => t.id === ticketId);
+      }
+
+      function getTicketMessages(ticketId) {
+        const adminData = getAdminData();
+        const ticket = (adminData.tickets || []).find(t => t.id === ticketId);
+        return ticket?.messages || [];
+      }
+
+      function saveTicketMessage(ticketId, message) {
+        // Save to admin data (shared store)
+        const adminData = getAdminData();
+        const ticket = (adminData.tickets || []).find(t => t.id === ticketId);
+        if (ticket) {
+          if (!ticket.messages) ticket.messages = [];
+          ticket.messages.push(message);
+          localStorage.setItem('radix_data', JSON.stringify(adminData));
+        }
+        // Also save to customer data
+        if (customerData.tickets) {
+          const custTicket = customerData.tickets.find(t => t.id === ticketId);
+          if (custTicket) {
+            if (!custTicket.messages) custTicket.messages = [];
+            custTicket.messages.push(message);
+            saveCustomerData();
+          }
+        }
+      }
+
+      function renderChatPanel(ticketId) {
+        const ticket = getTicketById(ticketId);
+        if (!ticket) return;
+        const messages = getTicketMessages(ticketId);
+        const container = document.getElementById('openChatPanels');
+        const statusColors = {
+          pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+          'in-progress': 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
+          closed: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+        };
+
+        const panel = document.createElement('div');
+        panel.id = 'chat-panel-' + ticketId;
+        panel.className = 'bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm';
+        panel.innerHTML = `
+          <div class="flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-teal-600 to-cyan-600 text-white">
+            <div class="flex items-center gap-3">
+              <span class="font-bold text-sm">${ticketId}</span>
+              <span class="text-xs opacity-90">${ticket.subject}</span>
+              <span class="px-2 py-0.5 text-[10px] font-medium rounded-full ${statusColors[ticket.status] || ''}">${(ticket.status || '').replace('-', ' ').toUpperCase()}</span>
+            </div>
+            <button onclick="closeTicketChat('${ticketId}')" class="p-1 hover:bg-white/20 rounded-lg transition-colors" title="Close">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div id="chat-messages-${ticketId}" class="p-4 h-64 overflow-y-auto space-y-3 bg-slate-50 dark:bg-slate-950/50">
+            <div class="text-center text-[10px] text-slate-400 dark:text-slate-500 py-1">
+              <span class="bg-slate-200 dark:bg-slate-800 px-3 py-1 rounded-full">Ticket created on ${ticket.createdAt || 'N/A'}</span>
+            </div>
+            ${ticket.description ? `
+              <div class="flex justify-start">
+                <div class="max-w-[75%] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl rounded-tl-sm px-3 py-2 shadow-sm">
+                  <p class="text-[10px] font-medium text-teal-600 dark:text-teal-400 mb-1">${ticket.customerName || 'You'} · Initial Description</p>
+                  <p class="text-xs text-slate-700 dark:text-slate-200">${escapeHtml(ticket.description)}</p>
+                  <p class="text-[9px] text-slate-400 mt-1">${ticket.createdAt}</p>
+                </div>
+              </div>
+            ` : ''}
+            ${messages.map(msg => renderChatBubble(msg)).join('')}
+          </div>
+          ${ticket.status !== 'closed' ? `
+            <div class="flex items-center gap-2 p-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <input type="text" id="chat-input-${ticketId}" placeholder="Type a message..." 
+                class="flex-1 px-3 py-2 text-xs border border-slate-200 dark:border-slate-700 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                onkeydown="if(event.key==='Enter')sendChatMessage('${ticketId}')">
+              <button onclick="sendChatMessage('${ticketId}')" class="p-2 bg-teal-600 hover:bg-teal-700 text-white rounded-full transition-colors flex-shrink-0" title="Send">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+              </button>
+            </div>
+          ` : `
+            <div class="px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-center">
+              <p class="text-xs text-slate-500 dark:text-slate-400">This ticket is closed. No new messages can be sent.</p>
+            </div>
+          `}
+        `;
+        container.appendChild(panel);
+        const chatBox = document.getElementById('chat-messages-' + ticketId);
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+
+      function renderChatBubble(msg) {
+        const isCustomer = msg.sender === 'customer';
+        const alignClass = isCustomer ? 'justify-end' : 'justify-start';
+        const bubbleClass = isCustomer
+          ? 'bg-teal-600 text-white rounded-2xl rounded-tr-sm'
+          : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl rounded-tl-sm';
+        const nameColor = isCustomer ? 'text-teal-100' : 'text-cyan-600 dark:text-cyan-400';
+        return `
+          <div class="flex ${alignClass}">
+            <div class="max-w-[75%] ${bubbleClass} px-3 py-2 shadow-sm">
+              <p class="text-[10px] font-medium ${nameColor} mb-1">${escapeHtml(msg.senderName || (isCustomer ? 'You' : 'Support'))}</p>
+              <p class="text-xs">${escapeHtml(msg.text)}</p>
+              <p class="text-[9px] ${isCustomer ? 'text-teal-200' : 'text-slate-400'} mt-1">${msg.timestamp || ''}</p>
+            </div>
+          </div>
+        `;
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text || '';
+        return div.innerHTML;
+      }
+
+      function sendChatMessage(ticketId) {
+        const input = document.getElementById('chat-input-' + ticketId);
+        const text = input.value.trim();
+        if (!text) return;
+
+        const message = {
+          id: 'MSG' + Date.now(),
+          sender: 'customer',
+          senderName: state.auth?.name || 'Customer',
+          text,
+          timestamp: new Date().toLocaleString()
+        };
+
+        saveTicketMessage(ticketId, message);
+        input.value = '';
+
+        // Append bubble
+        const chatBox = document.getElementById('chat-messages-' + ticketId);
+        chatBox.insertAdjacentHTML('beforeend', renderChatBubble(message));
+        chatBox.scrollTop = chatBox.scrollHeight;
       }
 
       // ===== SETTINGS =====
